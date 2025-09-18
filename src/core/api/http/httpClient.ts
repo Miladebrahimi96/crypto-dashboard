@@ -10,7 +10,7 @@ class HttpClient {
       baseURL: baseUrl,
       timeout: config.timeout,
       transformRequest: [(data, headers) => {
-        if (headers['Content-Type'] === 'application/json') {
+        if (headers['Content-Type'] !== 'multipart/form-data') {
           return JSON.stringify(deeplySnakize(data));
         }
 
@@ -42,6 +42,11 @@ class HttpClient {
         const token = this.getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+        }
+
+        // Transform params to snake_case
+        if (config.params) {
+          config.params = deeplySnakize(config.params);
         }
 
         if (import.meta.env.DEV) {
@@ -105,8 +110,12 @@ class HttpClient {
     return this.handler.delete<T>(url, config);
   }
 
-  public toResponse<T = any>(response: AxiosResponse<T>): T {
-    return response.data;
+  public toResponse<T, V>(clsConstructor: new (data: any) => T, plainObject: V): T | T[] {
+    if (Array.isArray(plainObject)) {
+      return plainObject.map(item => new clsConstructor(item));
+    }
+
+    return new clsConstructor(plainObject);
   }
 }
 
